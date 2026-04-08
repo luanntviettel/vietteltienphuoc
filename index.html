@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="vi" x-data="viettelApp()">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Viettel Tiên Phước - Thu thập thông tin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { extend: { colors: { viettelRed: '#e60000', viettelTeal: '#008b8b' } } }
+        }
+    </script>
+    <style>[x-cloak] { display: none !important; } .sticky-header { position: sticky; top: 0; z-index: 50; }</style>
+</head>
+<body :class="{ 'dark': darkMode }" class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 transition-colors duration-300">
+
+    <header class="bg-viettelRed text-white shadow-lg sticky-header">
+        <div class="container mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center">
+            <div class="text-center md:text-left">
+                <h1 class="text-xl font-bold uppercase">Viettel Khu Vực Tiên Phước</h1>
+                <p class="text-xs opacity-90 italic">Hệ thống đặt hàng & Góp ý trực tuyến</p>
+            </div>
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/Viettel_logo_2021.svg/1200px-Viettel_logo_2021.svg.png" alt="Viettel" class="h-8 bg-white p-1 rounded mt-2 md:mt-0">
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8">
+        <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm mb-6 flex flex-col md:flex-row gap-4">
+            <input type="text" x-model="searchQuery" placeholder="Tìm xã hoặc nhân viên..." class="flex-grow p-2 rounded-lg border dark:bg-gray-700 dark:border-gray-600 outline-none focus:ring-2 focus:ring-viettelRed">
+            <select x-model="filterRegion" class="p-2 rounded-lg border dark:bg-gray-700 dark:border-gray-600">
+                <option value="">Tất cả cụm xã</option>
+                <template x-for="region in regions" :key="region"><option :value="region" x-text="region"></option></template>
+            </select>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <template x-for="staff in filteredStaff" :key="staff.id">
+                <div class="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow border-l-4 border-viettelRed">
+                    <h3 class="font-bold text-lg text-viettelRed" x-text="staff.newTown"></h3>
+                    <p class="text-sm font-bold text-viettelTeal" x-text="staff.name"></p>
+                    <p class="text-xs text-gray-400 mb-4" x-text="staff.phone"></p>
+                    <div class="grid grid-cols-2 gap-2">
+                        <a :href="'tel:' + staff.phone" class="bg-green-500 text-white text-center py-2 rounded-lg font-bold text-xs"><i class="fas fa-phone mr-1"></i> GỌI</a>
+                        <button @click="openFeedback(staff)" class="bg-viettelRed text-white py-2 rounded-lg font-bold text-xs"><i class="fas fa-shopping-cart mr-1"></i> ĐẶT HÀNG</button>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </main>
+
+    <div x-cloak x-show="modalOpen" class="fixed inset-0 z-[60] flex items-center justify-center p-4">
+        <div @click="modalOpen = false" class="fixed inset-0 bg-black/60 backdrop-blur-sm"></div>
+        <div class="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md p-6 relative shadow-2xl">
+            <h2 class="text-xl font-bold mb-4 text-viettelRed italic">THÔNG TIN ĐẶT HÀNG</h2>
+            
+            <form @submit.prevent="submitFeedback">
+                <div class="mb-3">
+                    <label class="block text-sm font-bold mb-1">Họ tên khách hàng</label>
+                    <input type="text" x-model="clientName" required class="w-full p-2 rounded-lg border dark:bg-gray-700 dark:border-gray-600 outline-none focus:ring-2 focus:ring-viettelRed">
+                </div>
+                <div class="mb-3">
+                    <label class="block text-sm font-bold mb-1">Số điện thoại liên hệ</label>
+                    <input type="tel" x-model="clientPhone" required placeholder="Nhập số điện thoại để Viettel gọi lại" class="w-full p-2 rounded-lg border dark:bg-gray-700 dark:border-gray-600 outline-none focus:ring-2 focus:ring-viettelRed">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-bold mb-1">Nội dung (Gói cước/Lắp wifi...)</label>
+                    <textarea rows="3" x-model="content" required class="w-full p-2 rounded-lg border dark:bg-gray-700 dark:border-gray-600 outline-none focus:ring-2 focus:ring-viettelRed"></textarea>
+                </div>
+                <button type="submit" :disabled="isSending" class="w-full py-3 rounded-xl bg-viettelRed text-white font-black hover:bg-red-700 transition disabled:bg-gray-400">
+                    <span x-show="!isSending uppercase">XÁC NHẬN GỬI</span>
+                    <span x-show="isSending">ĐANG XỬ LÝ...</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function viettelApp() {
+            return {
+                darkMode: false, searchQuery: '', filterRegion: '', modalOpen: false, isSending: false,
+                selectedStaff: null, clientName: '', clientPhone: '', content: '',
+                regions: ['Xã Lãnh Ngọc', 'Xã Sơn Cẩm Hà', 'Xã Thạnh Bình', 'Xã Tiên Phước'],
+                staffData: [
+                    { id: 1, region: "Xã Lãnh Ngọc", newTown: "Khu vực Tiên Lãnh", name: "Nguyễn Thị Hạnh", phone: "0335831855" },
+                    { id: 2, region: "Xã Lãnh Ngọc", newTown: "Khu vực Tiên Ngọc", oldTown: "Tiên Ngọc", name: "Nguyễn Thị Bích Thảo", phone: "0969933479" },
+                    { id: 3, region: "Xã Lãnh Ngọc", newTown: "Khu vực Tiên Hiệp", oldTown: "Tiên Hiệp", name: "Nguyễn Thị Bích Huyền", phone: "0982337725" },
+                    { id: 4, region: "Xã Sơn Cẩm Hà", newTown: "Khu vực Tiên Sơn", oldTown: "Tiên Sơn", name: "Phạm Thị Lành", phone: "0868630661" },
+                    { id: 5, region: "Xã Sơn Cẩm Hà", newTown: "Khu vực Tiên Cẩm", oldTown: "Tiên Cẩm", name: "Phạm Thị Lành", phone: "0868630661" },
+                    { id: 6, region: "Xã Sơn Cẩm Hà", newTown: "Khu vực Tiên Hà", oldTown: "Tiên Hà", name: "Nguyễn Tấn Điệp", phone: "0868630849" },
+                    { id: 7, region: "Xã Sơn Cẩm Hà", newTown: "Khu vực Tiên Châu", oldTown: "Tiên Châu", name: "Phạm Xuân Tùng", phone: "0865276556" },
+                    { id: 8, region: "Xã Thạnh Bình", newTown: "Khu vực Tiên Cảnh", oldTown: "Tiên Cảnh", name: "Hồ Thị Cúc", phone: "0868630842" },
+                    { id: 9, region: "Xã Thạnh Bình", newTown: "Khu vực Tiên Lộc", oldTown: "Tiên Lộc", name: "Đỗ Thị Mỹ Duyên", phone: "0354229211" },
+                    { id: 10, region: "Xã Thạnh Bình", newTown: "Khu vực Tiên Lập", oldTown: "Tiên Lập", name: "Hồ Thị Tiên", phone: "0967462024" },
+                    { id: 11, region: "Xã Thạnh Bình", newTown: "Khu vực Tiên An", oldTown: "Tiên An", name: "Hồ Thị Tiên", phone: "0967462024" },
+                    { id: 12, region: "Xã Tiên Phước", newTown: "Khu vực Tiên Kỳ", oldTown: "Tiên Kỳ", name: "Công Thị Mỹ Nữ", phone: "0868630839" },
+                    { id: 13, region: "Xã Tiên Phước", newTown: "Khu vực Tiên Mỹ", oldTown: "Tiên Mỹ", name: "Phan Thị Hoài Thu", phone: "0367502173" },
+                    { id: 14, region: "Xã Tiên Phước", newTown: "Khu vực Tiên Phong", oldTown: "Tiên Phong", name: "Trần Vương Yến Ny", phone: "0983072797" },
+                    { id: 15, region: "Xã Tiên Phước", newTown: "Khu vực Tiên Thọ", oldTown: "Tiên Thọ", name: "Nguyễn Thị Bích Hà", phone: "0356571575" }
+                    // ... Thêm đầy đủ dữ liệu nhân viên của bạn vào đây
+                ],
+                get filteredStaff() {
+                    return this.staffData.filter(s => {
+                        return (s.newTown.toLowerCase().includes(this.searchQuery.toLowerCase()) || s.name.toLowerCase().includes(this.searchQuery.toLowerCase())) &&
+                               (this.filterRegion === '' || s.region === this.filterRegion);
+                    });
+                },
+                openFeedback(staff) { this.selectedStaff = staff; this.modalOpen = true; },
+                submitFeedback() {
+                    this.isSending = true;
+                    // DÁN LINK WEB APP URL MỚI CỦA BẠN VÀO ĐÂY
+                    const scriptURL = 'https://script.google.com/macros/s/AKfycbwHNt141AAY2ifuLX9fM3VgVDY0Yj3__amCraU99TontY3yzi2WmX2uMnyBeiDL5_GReg/exec';
+                    
+                    const data = {
+                        clientName: this.clientName,
+                        clientPhone: this.clientPhone, // Gửi thêm số điện thoại
+                        content: this.content,
+                        staffName: this.selectedStaff.name
+                    };
+
+                    fetch(scriptURL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(data) })
+                    .then(() => {
+                        alert('Cảm ơn ' + this.clientName + '! Viettel sẽ liên hệ lại qua số ' + this.clientPhone);
+                        this.modalOpen = false;
+                        this.clientName = ''; this.clientPhone = ''; this.content = '';
+                        this.isSending = false;
+                    })
+                    .catch(() => {
+                        alert('Lỗi hệ thống! Vui lòng gọi trực tiếp hotline.');
+                        this.isSending = false;
+                    });
+                }
+            }
+        }
+    </script>
+</body>
+</html>
